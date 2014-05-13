@@ -117,4 +117,22 @@ void * malloc(size_t nbytes) {
             return NULL;                                    /* none left */
    }
 }
+size_t min(size_t a, size_t b) {
+	if (a < b) return a;
+	return b;
+}
+
+size_t max(size_t a, size_t b) {
+	if (a > b) return a;
+	return b;
+}
+
+void * realloc(void * ptr, size_t size) {
+	void * newptr = malloc(size);
+	if (ptr == NULL) return newptr;
+	memcpy(newptr, ptr, min(size, sizeof(ptr)));
+	free(ptr);
+	return newptr;
+}
+
 
