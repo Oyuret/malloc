@@ -6,12 +6,12 @@ OBJ	= malloc.o tstalgorithms.o  tstcrash_simple.o\
 
 BIN	= t0 t1 t2 t3 t4 t5 t6 t7
 
-CFLAGS	= -g -Wall -ansi -DSTRATEGY=2
+CFLAGS	= -g -Wall -DSTRATEGY=2
 
 XFLAGS	= -g -Wall -DSTRATEGY=2
 
 #CC	= gcc -ansi -pedantic -Wall -g -pipe -O -pg
-CC	= gcc 
+CC	= gcc
 
 
 all: $(BIN)
@@ -27,7 +27,7 @@ t2: tstextreme.o malloc.o $(X)
 	$(CC) $(CFLAGS) -o $@  tstextreme.o malloc.o $(X)
 
 t3: tstmalloc.o  malloc.o $(X)
-	$(CC) $(CFLAGS) -o $@ tstmalloc.o  malloc.o $(X) 
+	$(CC) $(CFLAGS) -o $@ tstmalloc.o  malloc.o $(X)
 
 t4: tstmemory.o malloc.o $(X)
 	$(CC) $(CFLAGS) -o $@ tstmemory.o malloc.o $(X)
@@ -39,7 +39,7 @@ t6: tstcrash_simple.o malloc.o $(X)
 	$(CC) $(CFLAGS) -o  $@ tstcrash_simple.o malloc.o $(X)
 
 t7: malloc.o $(X)
-	$(CC) $(XFLAGS) -o $@  tstcrash_complex.c malloc.o $(X) 
+	$(CC) $(XFLAGS) -o $@  tstcrash_complex.c malloc.o $(X)
 
 clean:
 	\rm -f $(BIN) $(OBJ) core
