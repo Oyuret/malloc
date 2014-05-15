@@ -167,7 +167,7 @@ void * realloc(void * ptr, size_t size) {
       memcpy(newptr, ptr, (newHeaderPtr->s.size)*sizeof(Align));
    } else {
       /* Copy up to the size of old */
-      memcpy(newptr, ptr, (oldHeaderPtr->s.size)*sizeof(Header));
+      memcpy(newptr, ptr, (oldHeaderPtr->s.size)*sizeof(Align));
    }
 
    free(ptr);
