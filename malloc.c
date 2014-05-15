@@ -162,9 +162,9 @@ void * malloc(size_t nbytes) {
       }
 
       /* Nothing on the free list. Ask for more */
-      if(p == freep && best_ptr!=NULL)                                      /* wrapped around free list */
-         if((p = morecore(nunits)) == NULL)
-            return NULL;                                    /* none left */
+      if(p == freep) 
+            break;                                     /* wrapped around free list */
+                                          
    }
 
    if(best_ptr!=NULL) {
@@ -174,6 +174,14 @@ void * malloc(size_t nbytes) {
       best_ptr->s.size = nunits;
       freep = best_ptr_prev;
       return (void *)(best_ptr+1);
+   } else {
+       if((p = morecore(nunits)) == NULL)
+            return NULL; /* none left */
+
+       prevp->s.ptr = p->s.ptr;
+       freep = prevp;
+       return (void *)(p+1);
+   
    }
 
    return NULL;
