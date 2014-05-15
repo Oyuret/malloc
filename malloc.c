@@ -180,9 +180,18 @@ void * malloc(size_t nbytes) {
 
        prevp = p;
        p = p->s.ptr;
-       prevp->s.ptr = p->s.ptr;
-       freep = prevp;
-       return (void *)(p+1);
+
+       if (p->s.size == nunits) { /* If perfect fit */
+          prevp->s.ptr = p->s.ptr;
+          freep = prevp;
+          return (void *)(p+1);
+       } else {
+         p->s.size -= nunits;
+         p += p->s.size;
+         p->s.size = nunits;
+         freep = prevp;
+         return (void *)(p+1);
+      }
    
    }
 
