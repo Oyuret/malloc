@@ -117,17 +117,10 @@ void * malloc(size_t nbytes) {
 
 #if STRATEGY == 1
    return first_fit(p, prevp, nunits);
+#else
+   return best_fit(p, prevp, nunits);
 #endif // STRATEGY
 
-}
-size_t min(size_t a, size_t b) {
-   if (a < b) return a;
-   return b;
-}
-
-size_t max(size_t a, size_t b) {
-   if (a > b) return a;
-   return b;
 }
 
 void * realloc(void * ptr, size_t size) {
