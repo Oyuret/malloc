@@ -178,6 +178,8 @@ void * malloc(size_t nbytes) {
        if((p = morecore(nunits)) == NULL)
             return NULL; /* none left */
 
+       prevp = p;
+       p = p->s.ptr;
        prevp->s.ptr = p->s.ptr;
        freep = prevp;
        return (void *)(p+1);
