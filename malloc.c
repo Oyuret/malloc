@@ -7,6 +7,10 @@
 
 #define NALLOC 1024                                     /* minimum #units to request */
 
+#ifndef STRATEGY
+   #define STRATEGY 1
+#endif // STRATEGY
+
 typedef long Align;                                     /* for alignment to long boundary */
 
 union header {                                          /* block header */
@@ -19,13 +23,16 @@ union header {                                          /* block header */
 
 typedef union header Header;
 
+void * best_fit(Header* p, Header* prevp, unsigned nunits);
+void * first_fit(Header* p, Header* prevp, unsigned nunits);
+
 static Header base;                                     /* empty list to get started */
 static Header *freep = NULL;                            /* start of free list */
 
 /* Print the info on the given Header */
-void print(Header* ptr){
-    fprintf(stderr, "%s: %ld\n", "Header adress", (long)ptr);
-    fprintf(stderr, "%s: %ud\n", "size", ptr->s.size);
+void print(Header* ptr) {
+   fprintf(stderr, "%s: %ld\n", "Header adress", (long)ptr);
+   fprintf(stderr, "%s: %ud\n", "size", ptr->s.size);
 }
 
 /* free: put block ap in the free list */
@@ -107,22 +114,11 @@ void * malloc(size_t nbytes) {
       base.s.ptr = freep = prevp = &base;
       base.s.size = 0;
    }
-   for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
-      if(p->s.size >= nunits) {                           /* big enough */
-         if (p->s.size == nunits)                          /* exactly */
-            prevp->s.ptr = p->s.ptr;
-         else {                                            /* allocate tail end */
-            p->s.size -= nunits;
-            p += p->s.size;
-            p->s.size = nunits;
-         }
-         freep = prevp;
-         return (void *)(p+1);
-      }
-      if(p == freep)                                      /* wrapped around free list */
-         if((p = morecore(nunits)) == NULL)
-            return NULL;                                    /* none left */
-   }
+
+#if STRATEGY == 1
+   return first_fit(p, prevp, nunits);
+#endif // STRATEGY
+
 }
 size_t min(size_t a, size_t b) {
    if (a < b) return a;
@@ -172,7 +168,26 @@ void * realloc(void * ptr, size_t size) {
 
    free(ptr);
    return newptr;
+}
 
+void * first_fit(Header* p, Header* prevp, unsigned nunits) {
+
+   for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
+      if(p->s.size >= nunits) {                           /* big enough */
+         if (p->s.size == nunits)                          /* exactly */
+            prevp->s.ptr = p->s.ptr;
+         else {                                            /* allocate tail end */
+            p->s.size -= nunits;
+            p += p->s.size;
+            p->s.size = nunits;
+         }
+         freep = prevp;
+         return (void *)(p+1);
+      }
+      if(p == freep)                                      /* wrapped around free list */
+         if((p = morecore(nunits)) == NULL)
+            return NULL;                                    /* none left */
+   }
 
 }
 
