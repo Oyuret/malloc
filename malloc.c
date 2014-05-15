@@ -186,6 +186,7 @@ void * first_fit(Header* p, Header* prevp, unsigned nunits) {
 
 void * best_fit(Header* p, Header* prevp, unsigned nunits) {
    Header* best_ptr = NULL;
+   Header* best_ptr_prev = NULL;
 
    /* loopen */
    for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
@@ -205,9 +206,11 @@ void * best_fit(Header* p, Header* prevp, unsigned nunits) {
          /* if we dont have a best ptr */
          if(best_ptr == NULL) {
             best_ptr = p;
+            best_ptr_prev = prevp;
          } else {
             if(p->s.size < best_ptr->s.size) {
                best_ptr = p;
+               best_ptr_prev = prevp;
             }
          }
       }
@@ -223,7 +226,7 @@ void * best_fit(Header* p, Header* prevp, unsigned nunits) {
       best_ptr->s.size -= nunits;
       best_ptr += best_ptr->s.size;
       best_ptr->s.size = nunits;
-      freep = prevp;
+      freep = best_ptr_prev;
       return (void *)(best_ptr+1);
    }
 
