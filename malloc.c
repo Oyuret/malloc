@@ -26,11 +26,6 @@ typedef union header Header;
 static Header base;                                     /* empty list to get started */
 static Header *freep = NULL;                            /* start of free list */
 
-/* Print the info on the given Header */
-void print(Header* ptr) {
-   fprintf(stderr, "%s: %ld\n", "Header adress", (long)ptr);
-   fprintf(stderr, "%s: %ud\n", "size", ptr->s.size);
-}
 
 /* free: put block ap in the free list */
 
@@ -175,24 +170,35 @@ void * malloc(size_t nbytes) {
       freep = best_ptr_prev;
       return (void *)(best_ptr+1);
    } else {
-       if((p = morecore(nunits)) == NULL)
-            return NULL; /* none left */
-
        prevp = p;
        p = p->s.ptr;
+       while (p->s.size < nunits) {
+          
+           if((p = morecore(nunits)) == NULL)
+              return NULL; /* none left */
+
+          if (p->s.size < nunits) {
+             prevp = p;
+             p = p->s.ptr;
+             continue;
+          } else {
+             break;
+          }
+
+       }
 
        if (p->s.size == nunits) { /* If perfect fit */
-          prevp->s.ptr = p->s.ptr;
-          freep = prevp;
-          return (void *)(p+1);
-       } else {
+         prevp->s.ptr = p->s.ptr;
+         freep = prevp; 
+         return (void *)(p+1);
+      } else {
          p->s.size -= nunits;
          p += p->s.size;
          p->s.size = nunits;
          freep = prevp;
          return (void *)(p+1);
       }
-   
+      
    }
 
    return NULL;
@@ -224,9 +230,6 @@ void * realloc(void * ptr, size_t size) {
 
    Header* oldHeaderPtr = ((Header*) ptr) -1;
    Header* newHeaderPtr = ((Header*) newptr) -1;
-
-   /*print(oldHeaderPtr);*/
-   /*print(newHeaderPtr);*/
 
    /* If we are shrinking the size */
    if((oldHeaderPtr->s.size) > (newHeaderPtr->s.size)) {

@@ -50,6 +50,7 @@ int main(int argc, char * argv[])
     newBrk1 = (void *) sbrk(0);
 #endif
 
+
   free(p1);
   free(p2);
 
