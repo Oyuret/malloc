@@ -212,20 +212,22 @@ void * best_fit(Header* p, Header* prevp, unsigned nunits) {
          }
       }
 
-      if(best_ptr!=NULL) {
-         p = best_ptr;
-         p->s.size -= nunits;
-         p += p->s.size;
-         p->s.size = nunits;
-         freep = prevp;
-         return (void *)(p+1);
-      }
-
       /* Nothing on the free list. Ask for more */
-      if(p == freep)                                      /* wrapped around free list */
+      if(p == freep && best_ptr!=NULL)                                      /* wrapped around free list */
          if((p = morecore(nunits)) == NULL)
             return NULL;                                    /* none left */
    }
+
+   if(best_ptr!=NULL) {
+
+      best_ptr->s.size -= nunits;
+      best_ptr += best_ptr->s.size;
+      best_ptr->s.size = nunits;
+      freep = prevp;
+      return (void *)(best_ptr+1);
+   }
+
+   return NULL;
 
 }
 
