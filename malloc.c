@@ -8,7 +8,7 @@
 #define NALLOC 1024                                     /* minimum #units to request */
 
 #ifndef STRATEGY
-   #define STRATEGY 1
+#define STRATEGY 1
 #endif // STRATEGY
 
 typedef long Align;                                     /* for alignment to long boundary */
@@ -184,6 +184,51 @@ void * first_fit(Header* p, Header* prevp, unsigned nunits) {
          freep = prevp;
          return (void *)(p+1);
       }
+      if(p == freep)                                      /* wrapped around free list */
+         if((p = morecore(nunits)) == NULL)
+            return NULL;                                    /* none left */
+   }
+
+}
+
+void * best_fit(Header* p, Header* prevp, unsigned nunits) {
+   Header* best_ptr = NULL;
+
+   /* loopen */
+   for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
+
+      /* if we got enough space */
+      if(p->s.size >= nunits) {                           /* big enough */
+
+         /* if it fits perfectly */
+         if (p->s.size == nunits) {                         /* exactly */
+
+            prevp->s.ptr = p->s.ptr;
+            freep = prevp;
+            return (void *)(p+1);
+
+         }
+
+         /* if we dont have a best ptr */
+         if(best_ptr == NULL) {
+            best_ptr = p;
+         } else {
+            if(p->s.size < best_ptr->s.size) {
+               best_ptr = p;
+            }
+         }
+      }
+
+      if(best_ptr!=NULL) {
+         p = best_ptr;
+         p->s.size -= nunits;
+         p += p->s.size;
+         p->s.size = nunits;
+         freep = prevp;
+         return (void *)(p+1);
+      }
+
+      /* Nothing on the free list. Ask for more */
       if(p == freep)                                      /* wrapped around free list */
          if((p = morecore(nunits)) == NULL)
             return NULL;                                    /* none left */
