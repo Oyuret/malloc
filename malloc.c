@@ -23,9 +23,6 @@ union header {                                          /* block header */
 
 typedef union header Header;
 
-void * best_fit(Header* p, Header* prevp, unsigned nunits);
-void * first_fit(Header* p, Header* prevp, unsigned nunits);
-
 static Header base;                                     /* empty list to get started */
 static Header *freep = NULL;                            /* start of free list */
 
@@ -115,56 +112,7 @@ void * malloc(size_t nbytes) {
       base.s.size = 0;
    }
 
-#if STRATEGY == 1
-   return first_fit(p, prevp, nunits);
-#else
-   return best_fit(p, prevp, nunits);
-#endif // STRATEGY
-
-}
-
-void * realloc(void * ptr, size_t size) {
-
-   /* In case that ptr is a null pointer,
-    the function behaves like malloc */
-   if (ptr == NULL) return malloc(size);
-
-   /* Otherwise, if size is zero, the memory previously
-   allocated at ptr is deallocated as if a call to free
-   was made, and a null pointer is returned. */
-   if(size == 0) {
-      free(ptr);
-      return NULL;
-   }
-
-   /* Allocate the needed space */
-   void * newptr = malloc(size);
-
-   /* If the function fails to allocate the requested
-   block of memory, a null pointer is returned */
-   if (newptr == NULL) return NULL;
-
-   Header* oldHeaderPtr = ((Header*) ptr) -1;
-   Header* newHeaderPtr = ((Header*) newptr) -1;
-
-   /*print(oldHeaderPtr);*/
-   /*print(newHeaderPtr);*/
-
-   /* If we are shrinking the size */
-   if((oldHeaderPtr->s.size) > (newHeaderPtr->s.size)) {
-      /* Copy only up to the size of new */
-      memcpy(newptr, ptr, (newHeaderPtr->s.size)*sizeof(Align));
-   } else {
-      /* Copy up to the size of old */
-      memcpy(newptr, ptr, (oldHeaderPtr->s.size)*sizeof(Align));
-   }
-
-   free(ptr);
-   return newptr;
-}
-
-void * first_fit(Header* p, Header* prevp, unsigned nunits) {
-
+#if STRATEGY == 1 /* first fit */
    for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
       if(p->s.size >= nunits) {                           /* big enough */
          if (p->s.size == nunits)                          /* exactly */
@@ -181,10 +129,8 @@ void * first_fit(Header* p, Header* prevp, unsigned nunits) {
          if((p = morecore(nunits)) == NULL)
             return NULL;                                    /* none left */
    }
+#else /* best fit */
 
-}
-
-void * best_fit(Header* p, Header* prevp, unsigned nunits) {
    Header* best_ptr = NULL;
    Header* best_ptr_prev = NULL;
 
@@ -232,5 +178,47 @@ void * best_fit(Header* p, Header* prevp, unsigned nunits) {
 
    return NULL;
 
+#endif // STRATEGY
+
+}
+
+void * realloc(void * ptr, size_t size) {
+
+   /* In case that ptr is a null pointer,
+    the function behaves like malloc */
+   if (ptr == NULL) return malloc(size);
+
+   /* Otherwise, if size is zero, the memory previously
+   allocated at ptr is deallocated as if a call to free
+   was made, and a null pointer is returned. */
+   if(size == 0) {
+      free(ptr);
+      return NULL;
+   }
+
+   /* Allocate the needed space */
+   void * newptr = malloc(size);
+
+   /* If the function fails to allocate the requested
+   block of memory, a null pointer is returned */
+   if (newptr == NULL) return NULL;
+
+   Header* oldHeaderPtr = ((Header*) ptr) -1;
+   Header* newHeaderPtr = ((Header*) newptr) -1;
+
+   /*print(oldHeaderPtr);*/
+   /*print(newHeaderPtr);*/
+
+   /* If we are shrinking the size */
+   if((oldHeaderPtr->s.size) > (newHeaderPtr->s.size)) {
+      /* Copy only up to the size of new */
+      memcpy(newptr, ptr, (newHeaderPtr->s.size)*sizeof(Align));
+   } else {
+      /* Copy up to the size of old */
+      memcpy(newptr, ptr, (oldHeaderPtr->s.size)*sizeof(Align));
+   }
+
+   free(ptr);
+   return newptr;
 }
 
