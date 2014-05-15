@@ -1,6 +1,7 @@
 #include "brk.h"
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 #include <errno.h>
 #include <sys/mman.h>
 
@@ -20,6 +21,12 @@ typedef union header Header;
 
 static Header base;                                     /* empty list to get started */
 static Header *freep = NULL;                            /* start of free list */
+
+/* Print the info on the given Header */
+void print(Header* ptr){
+    fprintf(stderr, "%s: %ld\n", "Header adress", (long)ptr);
+    fprintf(stderr, "%s: %ud\n", "size", ptr->s.size);
+}
 
 /* free: put block ap in the free list */
 
@@ -118,21 +125,54 @@ void * malloc(size_t nbytes) {
    }
 }
 size_t min(size_t a, size_t b) {
-	if (a < b) return a;
-	return b;
+   if (a < b) return a;
+   return b;
 }
 
 size_t max(size_t a, size_t b) {
-	if (a > b) return a;
-	return b;
+   if (a > b) return a;
+   return b;
 }
 
 void * realloc(void * ptr, size_t size) {
-	void * newptr = malloc(size);
-	if (ptr == NULL) return newptr;
-	memcpy(newptr, ptr, min(size, sizeof(ptr)));
-	free(ptr);
-	return newptr;
-}
 
+   /* In case that ptr is a null pointer,
+    the function behaves like malloc */
+   if (ptr == NULL) return malloc(size);
+
+   /* Otherwise, if size is zero, the memory previously
+   allocated at ptr is deallocated as if a call to free
+   was made, and a null pointer is returned. */
+   if(size == 0) {
+      free(ptr);
+      return NULL;
+   }
+
+   /* Allocate the needed space */
+   void * newptr = malloc(size);
+
+   /* If the function fails to allocate the requested
+   block of memory, a null pointer is returned */
+   if (newptr == NULL) return NULL;
+
+   Header* oldHeaderPtr = ((Header*) ptr) -1;
+   Header* newHeaderPtr = ((Header*) newptr) -1;
+
+   /*print(oldHeaderPtr);*/
+   /*print(newHeaderPtr);*/
+
+   /* If we are shrinking the size */
+   if((oldHeaderPtr->s.size) > (newHeaderPtr->s.size)) {
+      /* Copy only up to the size of new */
+      memcpy(newptr, ptr, (newHeaderPtr->s.size)*sizeof(Align));
+   } else {
+      /* Copy up to the size of old */
+      memcpy(newptr, ptr, (oldHeaderPtr->s.size)*sizeof(Header));
+   }
+
+   free(ptr);
+   return newptr;
+
+
+}
 
