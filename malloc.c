@@ -5,26 +5,31 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#define NALLOC 1024                                     /* minimum #units to request */
+#define NALLOC 1024 /* minimum #units to request */
 
-#ifndef STRATEGY                                        /* Strategy isn't defined*/
-#define STRATEGY 1                                      /* Go for strategy 1 (first find)*/
-#endif // STRATEGY
+#ifndef STRATEGY /* Strategy isn't defined*/
+#define STRATEGY 1 /* Go for strategy 1 (first find)*/
+#endif /* STRATEGY */
 
-typedef long Align;                                     /* for alignment to long boundary */
 
-union header {                                          /* block header */
+/*  */
+
+
+
+typedef long Align; /* for alignment to long boundary */
+
+union header { /* block header */
   struct {
-    union header *ptr;                                  /* next block if on free list */
-    unsigned size;                                      /* size of this block  - what unit? */
+    union header *ptr; /* next block if on free list */
+    unsigned size; /* size of this block - what unit? */
   } s;
-  Align x;                                              /* force alignment of blocks */
+  Align x; /* force alignment of blocks */
 };
 
 typedef union header Header;
 
-static Header base;                                     /* empty list to get started */
-static Header *freep = NULL;                            /* start of free list */
+static Header base; /* empty list to get started */
+static Header *freep = NULL; /* start of free list */
 
 
 /* free: put block ap in the free list */
@@ -32,19 +37,19 @@ static Header *freep = NULL;                            /* start of free list */
 void free(void * ap) {
   Header *bp, *p;
 
-  if(ap == NULL) return;                                /* Nothing to do */
+  if(ap == NULL) return; /* Nothing to do */
 
-  bp = (Header *) ap - 1;                               /* point to block header */
+  bp = (Header *) ap - 1; /* point to block header */
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
     if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
-      break;                                            /* freed block at atrt or end of arena */
+      break; /* freed block at atrt or end of arena */
 
-  if(bp + bp->s.size == p->s.ptr) {                     /* join to upper nb */
+  if(bp + bp->s.size == p->s.ptr) { /* join to upper nb */
     bp->s.size += p->s.ptr->s.size;
     bp->s.ptr = p->s.ptr->s.ptr;
   } else
     bp->s.ptr = p->s.ptr;
-  if(p + p->s.size == bp) {                             /* join to lower nbr */
+  if(p + p->s.size == bp) { /* join to lower nbr */
     p->s.size += bp->s.size;
     p->s.ptr = bp->s.ptr;
   } else
@@ -83,7 +88,7 @@ static Header *morecore(unsigned nu) {
 #else
   cp = sbrk(nu*sizeof(Header));
 #endif
-  if(cp == (void *) -1) {                                /* no space at all */
+  if(cp == (void *) -1) { /* no space at all */
     perror("failed to get more memory");
     return NULL;
   }
@@ -108,11 +113,11 @@ void * malloc(size_t nbytes) {
   }
 
 #if STRATEGY == 1 /* first fit */
-  for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
-    if(p->s.size >= nunits) {                           /* big enough */
-      if (p->s.size == nunits)                          /* exactly */
+  for(p= prevp->s.ptr; ; prevp = p, p = p->s.ptr) {
+    if(p->s.size >= nunits) { /* big enough */
+      if (p->s.size == nunits) /* exactly */
         prevp->s.ptr = p->s.ptr;
-      else {                                            /* allocate tail end */
+      else { /* allocate tail end */
         p->s.size -= nunits;
         p += p->s.size;
         p->s.size = nunits;
@@ -120,9 +125,9 @@ void * malloc(size_t nbytes) {
       freep = prevp;
       return (void *)(p+1);
     }
-    if(p == freep)                                      /* wrapped around free list */
+    if(p == freep) /* wrapped around free list */
       if((p = morecore(nunits)) == NULL)
-        return NULL;                                    /* none left */
+        return NULL; /* none left */
   }
 #else /* best fit */
 
@@ -131,13 +136,13 @@ void * malloc(size_t nbytes) {
   Header* best_ptr_prev = NULL;
 
   /* Loop though the free list */
-  for(p= prevp->s.ptr;  ; prevp = p, p = p->s.ptr) {
+  for(p= prevp->s.ptr; ; prevp = p, p = p->s.ptr) {
 
     /* if we got enough space */
-    if(p->s.size >= nunits) {                           /* big enough */
+    if(p->s.size >= nunits) { /* big enough */
 
       /* if it fits perfectly */
-      if (p->s.size == nunits) {                         /* exactly */
+      if (p->s.size == nunits) { /* exactly */
 
         prevp->s.ptr = p->s.ptr;
         freep = prevp;
@@ -163,7 +168,7 @@ void * malloc(size_t nbytes) {
 
     /* We traversed the whole free list and found nothing */
     if(p == freep)
-      break;                                     /* wrapped around free list */
+      break; /* wrapped around free list */
 
   }
 
@@ -220,23 +225,23 @@ void * malloc(size_t nbytes) {
       return (void *)(p+1);
     }
 
-  } // end else
+  } /* end else */
 
   return NULL;
 
-#endif // STRATEGY
+#endif /* STRATEGY */
 
 }
 
 void * realloc(void * ptr, size_t size) {
 
   /* In case that ptr is a null pointer,
-   the function behaves like malloc */
+the function behaves like malloc */
   if (ptr == NULL) return malloc(size);
 
   /* Otherwise, if size is zero, the memory previously
-  allocated at ptr is deallocated as if a call to free
-  was made, and a null pointer is returned. */
+allocated at ptr is deallocated as if a call to free
+was made, and a null pointer is returned. */
   if(size == 0) {
     free(ptr);
     return NULL;
@@ -246,11 +251,11 @@ void * realloc(void * ptr, size_t size) {
   void * newptr = malloc(size);
 
   /* If the function fails to allocate the requested
-  block of memory, a null pointer is returned */
+block of memory, a null pointer is returned */
   if (newptr == NULL) return NULL;
 
   /* Since the ptr given was previously allocated with our malloc we can
-    adress is as our base Header */
+adress is as our base Header */
   Header* oldHeaderPtr = ((Header*) ptr) -1;
   Header* newHeaderPtr = ((Header*) newptr) -1;
 
@@ -266,4 +271,3 @@ void * realloc(void * ptr, size_t size) {
   free(ptr);
   return newptr;
 }
-
