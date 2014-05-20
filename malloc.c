@@ -1,3 +1,25 @@
+/**
+* NAME:
+* malloc - a custom implementation of malloc, free and realloc
+*
+* DESCRIPTION:
+* This is a simple custom implementation of malloc, free and realloc as 
+* found in the default C libraries. Functions that are found in the library 
+* version of malloc.h may not work.
+*
+* EXAMPLES:
+* void * pointer = malloc(sizeof(a));
+* pointer = realloc(pointer, sizeof(b));
+* free(pointer);
+*
+* AUTHOR:
+* Johan Storby, Yuri Stange, 2014
+*
+* SEE ALSO:
+* malloc(3), realloc(3), free(1)
+*
+*/
+
 #include "brk.h"
 #include <unistd.h>
 #include <string.h>
@@ -8,13 +30,8 @@
 #define NALLOC 1024 /* minimum #units to request */
 
 #ifndef STRATEGY /* Strategy isn't defined*/
-#define STRATEGY 1 /* Go for strategy 1 (first find)*/
+#define STRATEGY 1 /* Go for strategy 1 (first fit)*/
 #endif /* STRATEGY */
-
-
-/*  */
-
-
 
 typedef long Align; /* for alignment to long boundary */
 
@@ -33,7 +50,7 @@ static Header *freep = NULL; /* start of free list */
 
 
 /* free: put block ap in the free list */
-
+/* This is the code provided in the example code, did not need any changes. */
 void free(void * ap) {
   Header *bp, *p;
 
@@ -42,25 +59,25 @@ void free(void * ap) {
   bp = (Header *) ap - 1; /* point to block header */
   for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
     if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
-      break; /* freed block at atrt or end of arena */
+      break; /* freed block at start or end of arena, so we don't need to join other blocks */
 
   if(bp + bp->s.size == p->s.ptr) { /* join to upper nb */
-    bp->s.size += p->s.ptr->s.size;
+    bp->s.size += p->s.ptr->s.size; /* Increase the before-pointer with the size of p and join them */
     bp->s.ptr = p->s.ptr->s.ptr;
   } else
     bp->s.ptr = p->s.ptr;
   if(p + p->s.size == bp) { /* join to lower nbr */
-    p->s.size += bp->s.size;
+    p->s.size += bp->s.size; /* Increase p with the size of the the before-pointers and join them */
     p->s.ptr = bp->s.ptr;
   } else
     p->s.ptr = bp;
-  freep = p;
+  freep = p;   /*Set the free pointer to our local p */
 }
 
-/* morecore: ask system for more memory */
+
 
 #ifdef MMAP
-
+/* If mmap is defined we can use endHeap to find the end of the heap. */
 static void * __endHeap = 0;
 
 void * endHeap(void) {
@@ -70,6 +87,8 @@ void * endHeap(void) {
 #endif
 
 
+/* morecore: ask system for more memory */
+/* Using the provided example code, we have not made any changes. */
 static Header *morecore(unsigned nu) {
   void *cp;
   Header *up;
@@ -78,8 +97,10 @@ static Header *morecore(unsigned nu) {
   if(__endHeap == 0) __endHeap = sbrk(0);
 #endif
 
-  if(nu < NALLOC)
+  if(nu < NALLOC) /* We always ask for at least NALLOC amount at a time */
     nu = NALLOC;
+
+ /* Get more memory! */
 #ifdef MMAP
   noPages = ((nu*sizeof(Header))-1)/getpagesize() + 1;
   cp = mmap(__endHeap, noPages*getpagesize(), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -88,46 +109,49 @@ static Header *morecore(unsigned nu) {
 #else
   cp = sbrk(nu*sizeof(Header));
 #endif
-  if(cp == (void *) -1) { /* no space at all */
+  if(cp == (void *) -1) { /* No more memory :( */
     perror("failed to get more memory");
     return NULL;
   }
   up = (Header *) cp;
   up->s.size = nu;
   free((void *)(up+1));
-  return freep;
+  return freep; /* Return the start of the free area we now have. */
 }
 
+/* Malloc! Allocate memory. */
 void * malloc(size_t nbytes) {
-  Header *p, *prevp;
-  Header * morecore(unsigned);
+  Header *p, *prevp; /* Pointer, and previous pointer */
+  Header * morecore(unsigned); /* Function pointer to morecore */
   unsigned nunits;
 
-  if(nbytes == 0) return NULL;
+  if(nbytes == 0) return NULL; /* Request 0 bytes? Return null. */
 
+  /* Get the amount of units we need */
   nunits = (nbytes+sizeof(Header)-1)/sizeof(Header) +1;
-
+  
+  /* If this is the first run and we have no base set, then set a base. */
   if((prevp = freep) == NULL) {
     base.s.ptr = freep = prevp = &base;
     base.s.size = 0;
   }
 
 #if STRATEGY == 1 /* first fit */
-  for(p= prevp->s.ptr; ; prevp = p, p = p->s.ptr) {
-    if(p->s.size >= nunits) { /* big enough */
-      if (p->s.size == nunits) /* exactly */
+  for(p= prevp->s.ptr; ; prevp = p, p = p->s.ptr) { /* Loop through our free list */
+    if(p->s.size >= nunits) { /* Big enough? */
+      if (p->s.size == nunits) /* Fits exactly, set our pointer here */
         prevp->s.ptr = p->s.ptr;
-      else { /* allocate tail end */
+      else { /* Fits, but not exactly, allocate as much as we need, and leave the rest still avaialble. */
         p->s.size -= nunits;
         p += p->s.size;
         p->s.size = nunits;
       }
-      freep = prevp;
-      return (void *)(p+1);
+      freep = prevp; /* Set the new start of the free pointer */
+      return (void *)(p+1); /* Return the pointer */
     }
-    if(p == freep) /* wrapped around free list */
+    if(p == freep) /* Couldn't find any space in our exists free list, ask for more memory. */
       if((p = morecore(nunits)) == NULL)
-        return NULL; /* none left */
+        return NULL; /* We couldn't get more memory, so return null. */
   }
 #else /* best fit */
 
@@ -138,96 +162,62 @@ void * malloc(size_t nbytes) {
   /* Loop though the free list */
   for(p= prevp->s.ptr; ; prevp = p, p = p->s.ptr) {
 
-    /* if we got enough space */
-    if(p->s.size >= nunits) { /* big enough */
+    /* If it fits */
+    if(p->s.size >= nunits) {
 
       /* if it fits perfectly */
-      if (p->s.size == nunits) { /* exactly */
+      if (p->s.size == nunits) { 
+       /* We won't find anything better than a prefect fit, so use this right  away */
 
-        prevp->s.ptr = p->s.ptr;
-        freep = prevp;
-        return (void *)(p+1);
+        prevp->s.ptr = p->s.ptr; /* Set the previous pointer to point at the current. */
+        freep = prevp;  /* Freep starts at prevp now. */
+        return (void *)(p+1); /* Return the pointer */
 
       }
 
-      /* if we dont have a best ptr */
-      if(best_ptr == NULL) {
+      /* It fits, but not perfectly. */
 
-        /* Put the current slot as best */
+      if(best_ptr == NULL) { 
+       /* If we have no best pointer yet, set this as the best pointer. */
+
         best_ptr = p;
         best_ptr_prev = prevp;
       } else {
-
-        /* If the current free space is smaller (fits better) */
+        /* We already have a best pointer, but is the new one better? */
         if(p->s.size < best_ptr->s.size) {
+          /* It is better! So make it the new best pointer. */
           best_ptr = p;
           best_ptr_prev = prevp;
         }
       }
     }
 
-    /* We traversed the whole free list and found nothing */
-    if(p == freep)
-      break; /* wrapped around free list */
+    /* We traversed the whole free list and found nothing perfect */
+    if(p == freep) {
+
+	/* Do we have a best pointer? If so, use it! */
+	  if(best_ptr!=NULL) {
+
+	    /* Set it so the unused space at the tail end can be used by something else. */
+	    best_ptr->s.size -= nunits;
+	    best_ptr += best_ptr->s.size;
+	    best_ptr->s.size = nunits;
+	    freep = best_ptr_prev; /* Set freep to the previous pointer of the best pointer. */
+	    return (void *)(best_ptr+1); /* Return the best pointer */
+
+	  } else { /* We have no best pointer, ask morecore for more memory */
+		if ((p = morecore(nunits)) == NULL) {
+                	return NULL; /* Out of memory */
+            }
+          }
+    }
 
   }
 
-  /* If we got a candidate for best fitting */
-  if(best_ptr!=NULL) {
-
-    /* allocate tail end */
-    best_ptr->s.size -= nunits;
-    best_ptr += best_ptr->s.size;
-    best_ptr->s.size = nunits;
-    freep = best_ptr_prev;
-    return (void *)(best_ptr+1);
-
-  } else {
-
-    /* We had no candidate */
-
-    /* emulate 'looping' */
-    prevp = p;
-    p = p->s.ptr;
-
-    /* Ask for more memory 'till we got enough from morecore */
-    while (p->s.size < nunits) {
-
-      /* We got denied more memory */
-      if((p = morecore(nunits)) == NULL)
-        return NULL; /* none left */
-
-      /* We need to emulate 'looping' as in the while traversing the free list */
-      if (p->s.size < nunits) {
-        prevp = p;
-        p = p->s.ptr;
-        continue;
-      } else {
-
-        /* We got enough space. No need to loop more */
-        break;
-      }
-
-    }
-
-    /* Did we get a perfect slot?*/
-    if (p->s.size == nunits) { /* If perfect fit */
-      prevp->s.ptr = p->s.ptr;
-      freep = prevp;
-      return (void *)(p+1);
-    } else {
-
-      /* Allocate tail end */
-      p->s.size -= nunits;
-      p += p->s.size;
-      p->s.size = nunits;
-      freep = prevp;
-      return (void *)(p+1);
-    }
-
-  } /* end else */
-
-  return NULL;
+ 
+   /* This should never be reached. If we for any reason break out of the loop, 
+   something went wrong, so return null */
+  return NULL; 
 
 #endif /* STRATEGY */
 

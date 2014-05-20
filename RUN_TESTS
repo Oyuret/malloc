@@ -28,6 +28,6 @@ read ans
 #echo -n "********************* TEST CRASH COMPLEX ...  "
 #read ans
 #./t7
-echo -n "********************* TEST TIME ... "
-read ans
-./t8
+#echo -n "********************* TEST TIME ... "
+#read ans
+#./t8
